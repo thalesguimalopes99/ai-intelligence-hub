@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. The committed `items.json` and `meta.json` validate against the shared zod schema, which already includes `publishedAt`/`datePrecision`/`firstSeenAt`, cluster fields, `scoreBreakdown`, `schemaVersion`, `lastRunAt`/`lastSuccessAt` and per-source health
   5. A code-change PR runs typecheck, lint and tests and fails if any route becomes dynamic; data-only commits skip CI
 
-**Plans:** 3/8 plans executed
+**Plans:** 5/8 plans executed
 
 Plans:
 **Wave 1**
@@ -54,8 +54,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-04-PLAN.md — OpenAI RSS collector: fetch/parse/normalize, idempotent merge, meta health, atomic write-if-changed
-- [ ] 01-05-PLAN.md — LIVE/atrasado/parado client island polling /data/meta.json
+- [x] 01-04-PLAN.md — OpenAI RSS collector: fetch/parse/normalize, idempotent merge, meta health, atomic write-if-changed
+- [x] 01-05-PLAN.md — LIVE/atrasado/parado client island polling /data/meta.json
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Walking Skeleton | 3/8 | In Progress|  |
+| 1. Walking Skeleton | 5/8 | In Progress|  |
 | 2. Trustworthy Official-Source Feed | 0/TBD | Not started | - |
 | 3. Full Source Coverage & Transparency | 0/TBD | Not started | - |
 | 4. Design System & Reading Experience | 0/TBD | Not started | - |
