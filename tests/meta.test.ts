@@ -142,12 +142,32 @@ describe("buildMeta", () => {
     expect(meta.sources[0].consecutiveFailures).toBe(1);
   });
 
-  it("optional failure with required success → partial, lastSuccessAt advances", () => {
+  it("optional failure with required success → ok (plan rule), source marked error", () => {
     const meta = buildMeta({
       prevMeta: null,
       results: [
         { source, ok: true, itemsFetched: 3, itemsNew: 3 },
         { ...failure, source: optionalSource },
+      ],
+      startedAt: START,
+      finishedAt: END,
+      trigger: "local",
+      itemsTotal: 3,
+      itemsNew: 3,
+    });
+    expect(meta.lastRunStatus).toBe("ok");
+    expect(meta.lastSuccessAt).toBe(END);
+    expect(meta.sources[1].status).toBe("error");
+    expect(meta.run.sourcesFailed).toBe(1);
+  });
+
+  it("one of two required sources failing → partial, lastSuccessAt advances", () => {
+    const other: SourceConfig = { ...optionalSource, id: "req2", optional: false };
+    const meta = buildMeta({
+      prevMeta: null,
+      results: [
+        { source, ok: true, itemsFetched: 3, itemsNew: 3 },
+        { ...failure, source: other },
       ],
       startedAt: START,
       finishedAt: END,
