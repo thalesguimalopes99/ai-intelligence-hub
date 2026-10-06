@@ -1,7 +1,8 @@
 ---
 phase: 1
 slug: walking-skeleton
-status: draft
+status: approved
+reviewed_at: 2026-10-06
 shadcn_initialized: false
 preset: none
 created: 2026-10-06
@@ -138,6 +139,8 @@ Contraste (WCAG 2.2 AA, linha de base de REQ UI-04, medido sobre `bg #0B0D12`):
 
 ## Anatomia da Página (de cima para baixo)
 
+**Ponto focal:** o `<h1>` com o glifo em `accent` é a âncora visual da página. O selo de status, dentro do painel em `surface`, é o ponto de atenção secundário.
+
 1. **Cabeçalho** (`<header>`): glifo SVG inline (20px, `accent`) + `<h1>` "AI Intelligence Hub" (Display). Abaixo, a tagline (Body, `fg-muted`).
 2. **Painel de status** (`<section aria-label="Status da atualização">`, `surface`, borda de 1px em `border`, `radius-panel`, padding de 16px):
    - Selo em pílula (`radius-pill`, padding de 4px x 8px, com ponto de 8px, espaço de 4px e o rótulo).
@@ -230,11 +233,11 @@ Cards, chips de fonte e empresa, categorias, chip de relevância, filtros, busca
 
 ## Aprovação do Checker
 
-- [ ] Dimensão 1 Copywriting: PASSA
-- [ ] Dimensão 2 Visual: PASSA
-- [ ] Dimensão 3 Cor: PASSA
-- [ ] Dimensão 4 Tipografia: PASSA
-- [ ] Dimensão 5 Espaçamento: PASSA
-- [ ] Dimensão 6 Segurança de Registry: PASSA
+- [x] Dimensão 1 Copywriting: PASSA
+- [x] Dimensão 2 Visual: PASSA
+- [x] Dimensão 3 Cor: PASSA
+- [x] Dimensão 4 Tipografia: PASSA
+- [x] Dimensão 5 Espaçamento: PASSA
+- [x] Dimensão 6 Segurança de Registry: PASSA
 
-**Aprovação:** pendente
+**Aprovação:** aprovado em 2026-10-06 (gsd-ui-checker: 6/6, 1 recomendação aplicada)
