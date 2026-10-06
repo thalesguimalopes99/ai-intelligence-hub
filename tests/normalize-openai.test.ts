@@ -202,13 +202,31 @@ describe("normalizeEntry", () => {
     expect(normalizeEntry(raw("https://пример.рф/a"), source, NOW)).toBeNull();
     const ip = normalizeEntryResult(raw("https://1.2.3.4/a"), source, NOW);
     expect(ip).toEqual({ ok: false, reason: expect.stringContaining("url") });
-    // Year >= 10000 → '+010000-…' fails z.iso.datetime(): dropped, not written.
-    const y10k = normalizeEntryResult(
+    // Year >= 10000 never produces an invalid '+010000-…' timestamp: it is a
+    // far-future date, so it becomes "no date" (WR-01) and the item stays valid.
+    const y10k = normalizeEntry(
       raw("https://openai.com/index/y10k", "Sat, 01 Jan 10000 00:00:00 GMT"),
       source,
       NOW,
-    );
-    expect(y10k).toEqual({ ok: false, reason: expect.stringContaining("publishedAt") });
+    )!;
+    expect(y10k).not.toBeNull();
+    expect(() => Item.parse(y10k)).not.toThrow();
+    expect(y10k.publishedAt).toBeNull();
+  });
+
+  it("treats a publish date more than 24h in the future as unknown (WR-01)", () => {
+    const raw = (pubDate: string) => ({
+      title: "t",
+      link: "https://openai.com/index/future",
+      description: "",
+      pubDate,
+      guid: "",
+    });
+    const typo = normalizeEntry(raw("Tue, 06 Oct 2099 10:00:00 GMT"), source, NOW)!;
+    expect(typo).toMatchObject({ publishedAt: null, datePrecision: "none", firstSeenAt: NOW });
+    // Within the tolerance (time-zone skew, early publish) the date is kept.
+    const soon = normalizeEntry(raw("Tue, 06 Oct 2026 20:00:00 GMT"), source, NOW)!;
+    expect(soon.publishedAt).toBe("2026-10-06T20:00:00.000Z");
   });
 
   it("does not add an ellipsis when the excerpt fits", () => {

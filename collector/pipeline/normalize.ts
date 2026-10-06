@@ -24,10 +24,18 @@ export function truncateGraphemes(text: string, max: number): string {
   return out.trimEnd() + ELLIPSIS;
 }
 
-function toIso(pubDate: string): string | null {
+/** A publish date further ahead than this is a feed typo, not a real date. */
+const FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
+
+function toIso(pubDate: string, nowIso: string): string | null {
   if (!pubDate.trim()) return null;
   const d = new Date(pubDate);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  if (Number.isNaN(d.getTime())) return null;
+  // Future dates (e.g. '2099-10-06') would pin the item to the top forever,
+  // and stored items are never re-edited: treat them as unknown, never "now"
+  // (WR-01). This also turns year >= 10000 into "no date" instead of a drop.
+  if (d.getTime() > Date.parse(nowIso) + FUTURE_TOLERANCE_MS) return null;
+  return d.toISOString();
 }
 
 /** The source's own link, trimmed and WHATWG-serialized; null unless http(s). */
@@ -63,7 +71,7 @@ export function normalizeEntryResult(
   if (title === "") return { ok: false, reason: "empty title" };
 
   const id = idFromUrl(canonical);
-  const publishedAt = toIso(entry.pubDate);
+  const publishedAt = toIso(entry.pubDate, nowIso);
   const candidate: Item = {
     id,
     url,
