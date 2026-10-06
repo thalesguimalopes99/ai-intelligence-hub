@@ -21,7 +21,7 @@ export function liveStatus(lastSuccessAt: string | null, nowMs: number): LiveSta
   return "parado";
 }
 
-/** 'agora mesmo' | 'há N min' | 'há N h' | 'há 1 dia' | 'há N dias' (no formatDistance, per UI-SPEC). */
+/** 'agora mesmo' | 'há N min' | 'há N h' | 'há 1 dia' | 'há N dias' (explicit differenceIn* buckets, per UI-SPEC). */
 export function formatRelative(fromIso: string, nowMs: number): string {
   const from = Date.parse(fromIso);
   if (!Number.isFinite(from) || nowMs <= from) return "agora mesmo";
