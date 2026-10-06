@@ -28,6 +28,12 @@ export const DELAYED_MAX_MIN = 180;
 export const POLL_INTERVAL_MS = 60_000;
 export const CLOCK_TICK_MS = 30_000;
 export const MAX_FEED_BYTES = 5_000_000;
+/**
+ * Global fetch budget for one collector run (WR-06). Well under the job's
+ * timeout-minutes: 10, so meta.json is always written and committed even when
+ * sources hang: once spent, in-flight fetches abort and the rest are skipped.
+ */
+export const RUN_BUDGET_MS = 240_000;
 
 export const TZ_BRASILIA = "America/Sao_Paulo";
 

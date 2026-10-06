@@ -152,6 +152,54 @@ describe("runCollector", () => {
     expect(readItems().items.map((i) => i.title)).toEqual(["Good"]);
   });
 
+  it("skips sources once the global run budget is spent, still writing meta (WR-06)", async () => {
+    await runCollector({ dataDir: dir, now: at("2026-10-06T12:00:00Z"), env: {}, fetchText: okFetch });
+    const before = fs.readFileSync(path.join(dir, "items.json"));
+    const fetchSpy = vi.fn(okFetch);
+    const r = await runCollector({
+      dataDir: dir,
+      now: at("2026-10-06T13:00:00Z"),
+      env: {},
+      fetchText: fetchSpy,
+      budgetMs: 0,
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(r.runStatus).toBe("failed");
+    expect(fs.readFileSync(path.join(dir, "items.json")).equals(before)).toBe(true);
+    expect(readMeta().sources[0]).toMatchObject({
+      status: "error",
+      errorKind: "timeout",
+      message: expect.stringContaining("budget"),
+    });
+  });
+
+  it("aborts an in-flight fetch at the deadline and skips the remaining sources (WR-06)", async () => {
+    const [base] = (await import("../config/sources")).SOURCES;
+    const sources = [base, { ...base, id: "second", name: "Second" }];
+    const seen: string[] = [];
+    const hanging = (url: string, init?: { signal?: AbortSignal }) => {
+      seen.push(url);
+      return new Promise<{ status: number; text: string }>((_, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      });
+    };
+    const t0 = Date.now();
+    const r = await runCollector({
+      dataDir: dir,
+      now: at("2026-10-06T12:00:00Z"),
+      env: {},
+      sources,
+      fetchText: hanging,
+      budgetMs: 50,
+    });
+    expect(Date.now() - t0).toBeLessThan(5_000);
+    expect(seen).toHaveLength(1);
+    expect(r.runStatus).toBe("failed");
+    const meta = readMeta();
+    expect(meta.sources.map((s) => s.errorKind)).toEqual(["timeout", "timeout"]);
+    expect(meta.sources[1].message).toContain("budget");
+  });
+
   it("writes the GITHUB_OUTPUT contract", async () => {
     const out = path.join(dir, "gh-output.txt");
     const { writeGithubOutput } = await import("../collector/run");

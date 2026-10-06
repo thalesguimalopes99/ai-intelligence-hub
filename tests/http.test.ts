@@ -1,6 +1,14 @@
 // HTTP layer helpers that need no network: capped body reading (WR-05).
 import { describe, expect, it } from "vitest";
-import { FetchError, readBodyCapped } from "../collector/http";
+import { classifyFetchError, FetchError, readBodyCapped } from "../collector/http";
+
+describe("classifyFetchError (WR-06)", () => {
+  it("classifies an abort by the run budget as timeout", () => {
+    const err = new DOMException("run time budget exhausted", "TimeoutError");
+    expect(classifyFetchError(err)).toMatchObject({ errorKind: "timeout", httpStatus: null });
+    expect(classifyFetchError(new DOMException("aborted", "AbortError")).errorKind).toBe("timeout");
+  });
+});
 
 function chunkedResponse(chunks: Uint8Array[]): { res: Response; pulled: () => number } {
   let i = 0;

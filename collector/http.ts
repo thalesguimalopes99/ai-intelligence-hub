@@ -81,6 +81,10 @@ export function classifyFetchError(err: unknown): ClassifiedError {
   if (isTimeoutError(err)) {
     return { errorKind: "timeout", httpStatus: null, message: sanitizeMessage(err.message) };
   }
+  // The run's global budget aborting a fetch (WR-06) is a timeout, not a network error.
+  if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+    return { errorKind: "timeout", httpStatus: null, message: sanitizeMessage(err.message) };
+  }
   // NetworkError, fetch TypeError, DNS/socket failures and anything unexpected.
   const message = err instanceof Error ? err.message : String(err);
   return { errorKind: "network", httpStatus: null, message: sanitizeMessage(message) };
@@ -111,9 +115,15 @@ export async function readBodyCapped(res: Response, maxBytes: number = MAX_FEED_
   return parts.join("");
 }
 
-/** GET a text body, rejecting anything larger than MAX_FEED_BYTES. */
-export async function fetchText(url: string): Promise<{ status: number; text: string }> {
-  const res = await http.get(url);
+/**
+ * GET a text body, rejecting anything larger than MAX_FEED_BYTES. `signal`
+ * is the run's global budget (WR-06): it aborts the request and the body read.
+ */
+export async function fetchText(
+  url: string,
+  init: { signal?: AbortSignal } = {},
+): Promise<{ status: number; text: string }> {
+  const res = await http.get(url, { signal: init.signal });
   const declared = Number(res.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > MAX_FEED_BYTES) {
     await res.body?.cancel();

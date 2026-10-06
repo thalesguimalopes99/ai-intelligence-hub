@@ -9,7 +9,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SOURCES, type SourceConfig } from "../config/sources";
 import { resolveDataDir } from "../src/lib/data";
-import { SCHEMA_VERSION } from "../src/shared/constants";
+import { RUN_BUDGET_MS, SCHEMA_VERSION } from "../src/shared/constants";
 import { Item as ItemSchema, type Item } from "../src/shared/schema";
 import { parseRss } from "./adapters/rss";
 import {
@@ -30,7 +30,12 @@ export type RunOptions = {
   now?: () => Date;
   env?: NodeJS.ProcessEnv | Record<string, string | undefined>;
   sources?: SourceConfig[];
-  fetchText?: (url: string) => Promise<{ status: number; text: string }>;
+  fetchText?: (
+    url: string,
+    init?: { signal?: AbortSignal },
+  ) => Promise<{ status: number; text: string }>;
+  /** Global time budget for all fetches (default RUN_BUDGET_MS, WR-06). */
+  budgetMs?: number;
 };
 
 export async function runCollector(
@@ -49,47 +54,68 @@ export async function runCollector(
   let items: Item[] = prevFile.items;
   const results: SourceResult[] = [];
 
-  for (const source of sources) {
-    try {
-      const { text } = await fetchText(source.url);
-      const entries = parseRss(text);
-      // Each entry is validated on its own (CR-01): a bad one is dropped and
-      // logged, it never aborts the run for every other item and source.
-      const fresh: Item[] = [];
-      const dropReasons: string[] = [];
-      for (const entry of entries) {
-        const r = normalizeEntryResult(entry, source, startedAt);
-        if (r.ok) {
-          fresh.push(r.item);
-        } else {
-          dropReasons.push(r.reason);
-          console.warn(
-            `[collect] ${source.id} dropped entry: ${r.reason} link=${sanitizeMessage(entry.link, 200)}`,
+  // One deadline for the whole run (WR-06): GitHub kills the job at
+  // timeout-minutes and then nothing is written, not even the health.
+  const budgetMs = opts.budgetMs ?? RUN_BUDGET_MS;
+  const deadlineAt = Date.now() + budgetMs;
+  const budget = new AbortController();
+  const timer = setTimeout(
+    () => budget.abort(new DOMException("run time budget exhausted", "TimeoutError")),
+    budgetMs,
+  );
+  timer.unref?.();
+
+  try {
+    for (const source of sources) {
+      if (budget.signal.aborted || Date.now() >= deadlineAt) {
+        const message = `skipped: run time budget of ${budgetMs} ms exhausted`;
+        console.error(`[collect] ${source.id} failed: timeout http=- body=${message}`);
+        results.push({ source, ok: false, errorKind: "timeout", httpStatus: null, message });
+        continue;
+      }
+      try {
+        const { text } = await fetchText(source.url, { signal: budget.signal });
+        const entries = parseRss(text);
+        // Each entry is validated on its own (CR-01): a bad one is dropped and
+        // logged, it never aborts the run for every other item and source.
+        const fresh: Item[] = [];
+        const dropReasons: string[] = [];
+        for (const entry of entries) {
+          const r = normalizeEntryResult(entry, source, startedAt);
+          if (r.ok) {
+            fresh.push(r.item);
+          } else {
+            dropReasons.push(r.reason);
+            console.warn(
+              `[collect] ${source.id} dropped entry: ${r.reason} link=${sanitizeMessage(entry.link, 200)}`,
+            );
+          }
+        }
+        if (fresh.length === 0) {
+          const why = [...new Set(dropReasons)].join("; ");
+          throw new FetchError(
+            "parser_contract",
+            null,
+            `0 of ${entries.length} entries usable${why ? ` (${why})` : ""}`,
           );
         }
-      }
-      if (fresh.length === 0) {
-        const why = [...new Set(dropReasons)].join("; ");
-        throw new FetchError(
-          "parser_contract",
-          null,
-          `0 of ${entries.length} entries usable${why ? ` (${why})` : ""}`,
+        const before = new Set(items.map((i) => i.id));
+        items = mergeItems(items, fresh, startedAt, {
+          sourceFirstRun: !prevHealth.get(source.id)?.lastSuccessAt,
+        });
+        const added = items.filter((i) => i.sourceId === source.id && !before.has(i.id)).length;
+        results.push({ source, ok: true, itemsFetched: fresh.length, itemsNew: added });
+      } catch (error) {
+        const c = classifyFetchError(error);
+        console.error(
+          `[collect] ${source.id} failed: ${c.errorKind} http=${c.httpStatus ?? "-"} body=${c.message.slice(0, 200)}`,
         );
+        // Previous items for this source are kept unchanged.
+        results.push({ source, ok: false, ...c });
       }
-      const before = new Set(items.map((i) => i.id));
-      items = mergeItems(items, fresh, startedAt, {
-        sourceFirstRun: !prevHealth.get(source.id)?.lastSuccessAt,
-      });
-      const added = items.filter((i) => i.sourceId === source.id && !before.has(i.id)).length;
-      results.push({ source, ok: true, itemsFetched: fresh.length, itemsNew: added });
-    } catch (error) {
-      const c = classifyFetchError(error);
-      console.error(
-        `[collect] ${source.id} failed: ${c.errorKind} http=${c.httpStatus ?? "-"} body=${c.message.slice(0, 200)}`,
-      );
-      // Previous items for this source are kept unchanged.
-      results.push({ source, ok: false, ...c });
     }
+  } finally {
+    clearTimeout(timer);
   }
 
   // Window the stored set even when every source failed (still no churn if nothing aged out).
