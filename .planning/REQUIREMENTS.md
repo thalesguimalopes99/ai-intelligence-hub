@@ -11,7 +11,7 @@
 - [ ] **PIPE-02**: Each run commits updated data to the repo only when data changed (plus `meta.json`), authored so that Vercel Hobby accepts the deploy
 - [ ] **PIPE-03**: Every data commit produces a Vercel production deployment of the site automatically (proven with a scheduled, not manual, run)
 - [ ] **PIPE-04**: Concurrent runs never corrupt data (concurrency group without cancel, rebase-and-retry push, idempotent merge)
-- [ ] **PIPE-05**: Repo is public under the owner's personal GitHub account; only `main` deploys on Vercel
+- [x] **PIPE-05**: Repo is public under the owner's personal GitHub account; only `main` deploys on Vercel
 - [x] **PIPE-06**: A CI workflow runs typecheck, lint and tests on code changes (not on data-only commits) and fails if any route becomes dynamic
 
 ### Collection (COLL)
@@ -128,9 +128,9 @@
 |-------------|-------|--------|
 | PIPE-01 | Phase 1 | Pending |
 | PIPE-02 | Phase 1 | Pending |
-| PIPE-03 | Phase 1 | Pending |
+| PIPE-03 | Phase 1 | In Progress (first leg: push -> prod deploy proven in 01-06; scheduled-run leg pending 01-07/01-08) |
 | PIPE-04 | Phase 1 | Pending |
-| PIPE-05 | Phase 1 | Pending |
+| PIPE-05 | Phase 1 | Complete |
 | PIPE-06 | Phase 1 | Complete |
 | COLL-01 | Phase 2 | Pending |
 | COLL-02 | Phase 3 | Pending |
