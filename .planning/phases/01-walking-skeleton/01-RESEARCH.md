@@ -684,12 +684,16 @@ Verified on next@16.3.8: the clean app gives `[]`, and a page using `headers()` 
 | A7 | Vercel builds via `npm run build` (package.json script) for Next.js | package.json | If it ran `next build` directly, build-views would be skipped and `/data/meta.json` would 404. Verify in the first deploy log, or set the Build Command explicitly |
 | A8 | slopcheck verdicts (tool unavailable) | Package audit | Low. All packages are mainstream and were exercised locally |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Vercel domain alias.** `ai-intelligence-hub.vercel.app` is taken. *Recommendation:* ask the user at the repo/Vercel setup checkpoint. Default to `ai-intelligence-hub-br.vercel.app` (returned 404 → likely free) and add it as a project domain.
+   RESOLVED: the user chose Vercel project `ai-intelligence-hub-br` → `ai-intelligence-hub-br.vercel.app` (GitHub repo stays `thalesguimalopes99/ai-intelligence-hub`). Implemented in plans 01-03 (README/live URL) and 01-06 (project creation, stop if the domain differs).
 2. **What happens if OpenAI blocks the runner?** *Recommendation:* the first manual dispatch is the probe. On a block, pause and ask the user. Do not swap sources silently.
+   RESOLVED: plan 01-07 Task 1 is the runner probe; on `blocked`/403/challenge it STOPS and returns a decision checkpoint to the user (user decision: no autonomous source swap).
 3. **Should a failed-source run commit meta.json?** *Recommendation (discretion):* yes. Commit meta.json with `lastRunAt` advanced, `lastSuccessAt` unchanged and an error in the health record, then fail the job after the push. The LIVE badge degrades honestly, the owner gets the GitHub failure email, and the run is still auditable. Validation failure → write nothing, exit 1.
+   RESOLVED: adopted. Plan 01-04 (collector/run.ts + meta.ts: meta.json written with error health, lastSuccessAt unchanged, run_status=failed, exit 0; validation failure → nothing written, exit 1) and plan 01-03 (collect.yml fails the job after the push when run_status=failed).
 4. **How do we test the concurrency criterion reliably?** A scheduled run lasts about 60–90 s. *Recommendation:* use a poll script (`gh run list --workflow collect.yml --event schedule --status in_progress`) at about :17–:25 UTC, and dispatch immediately when it appears. The `hold_seconds` input makes a manual-vs-manual rehearsal easy beforehand.
+   RESOLVED: plan 01-03 adds the `hold_seconds` dispatch input; plan 01-08 Task 2 runs the rehearsal and the real manual-during-scheduled test via background polling.
 
 ## Environment Availability
 
