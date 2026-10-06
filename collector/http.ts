@@ -1,0 +1,107 @@
+// HTTP layer: one ky instance with bounded timeouts/retries (T-01-12) and a
+// classifier that turns any fetch failure into a SourceHealth errorKind.
+import ky, { isHTTPError, isTimeoutError } from "ky";
+import { MAX_FEED_BYTES, USER_AGENT } from "../src/shared/constants";
+import type { ErrorKind } from "../src/shared/schema";
+
+export const http = ky.create({
+  headers: {
+    "user-agent": USER_AGENT,
+    accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
+  },
+  timeout: 15_000,
+  totalTimeout: 60_000,
+  retry: {
+    limit: 2,
+    // ky's default is Infinity: a huge Retry-After would stall the hourly run.
+    maxRetryAfter: 15_000,
+    jitter: true,
+    retryOnTimeout: true,
+  },
+});
+
+/** A classified source failure raised by our own code (size cap, parse, empty). */
+export class FetchError extends Error {
+  readonly errorKind: ErrorKind;
+  readonly httpStatus: number | null;
+
+  constructor(errorKind: ErrorKind, httpStatus: number | null, message: string) {
+    super(message);
+    this.name = "FetchError";
+    this.errorKind = errorKind;
+    this.httpStatus = httpStatus;
+  }
+}
+
+export type ClassifiedError = {
+  errorKind: ErrorKind;
+  httpStatus: number | null;
+  message: string;
+};
+
+const MESSAGE_MAX = 300;
+const BODY_EXCERPT = 200;
+
+/** Strip control characters, collapse whitespace, cap length (T-01-16). */
+export function sanitizeMessage(text: string, max: number = MESSAGE_MAX): string {
+  return (
+    text
+      .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max)
+  );
+}
+
+/** Cloudflare challenge markers (Pitfall 4): "Just a mo-ment...", cf-chl / cf_chl. */
+const CHALLENGE_RE = /just a m[o]ment|cf-chl|cf_chl/i;
+
+function isChallenge(body: string): boolean {
+  return CHALLENGE_RE.test(body);
+}
+
+export function classifyFetchError(err: unknown): ClassifiedError {
+  if (err instanceof FetchError) {
+    return {
+      errorKind: err.errorKind,
+      httpStatus: err.httpStatus,
+      message: sanitizeMessage(err.message),
+    };
+  }
+  if (isHTTPError(err)) {
+    const status = err.response.status;
+    const body = typeof err.data === "string" ? err.data : "";
+    const blocked = (status === 403 || status === 503) && isChallenge(body);
+    return {
+      errorKind: blocked ? "blocked" : "http",
+      httpStatus: status,
+      message: sanitizeMessage(body.slice(0, BODY_EXCERPT * 2), BODY_EXCERPT) || sanitizeMessage(err.message),
+    };
+  }
+  if (isTimeoutError(err)) {
+    return { errorKind: "timeout", httpStatus: null, message: sanitizeMessage(err.message) };
+  }
+  // NetworkError, fetch TypeError, DNS/socket failures and anything unexpected.
+  const message = err instanceof Error ? err.message : String(err);
+  return { errorKind: "network", httpStatus: null, message: sanitizeMessage(message) };
+}
+
+/** GET a text body, rejecting anything larger than MAX_FEED_BYTES. */
+export async function fetchText(url: string): Promise<{ status: number; text: string }> {
+  const res = await http.get(url);
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_FEED_BYTES) {
+    await res.body?.cancel();
+    throw new FetchError("invalid", res.status, `body too large: ${declared} bytes`);
+  }
+  const text = await res.text();
+  if (text.length > MAX_FEED_BYTES) {
+    throw new FetchError("invalid", res.status, `body too large: ${text.length} chars`);
+  }
+  // A 200 challenge page is a block, not a feed.
+  const head = text.slice(0, 2000);
+  if (isChallenge(head) && !/<rss|<feed|<rdf/i.test(head)) {
+    throw new FetchError("blocked", res.status, text.slice(0, BODY_EXCERPT));
+  }
+  return { status: res.status, text };
+}
