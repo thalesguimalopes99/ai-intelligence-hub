@@ -221,6 +221,7 @@ describe("ci.yml (PIPE-06, D-04, T-01-08)", () => {
 
 describe("vercel.json (PIPE-05)", () => {
   const config = JSON.parse(readText("vercel.json")) as {
+    framework?: string;
     buildCommand?: string;
     git?: { deploymentEnabled?: Record<string, boolean> };
   };
@@ -231,5 +232,9 @@ describe("vercel.json (PIPE-05)", () => {
 
   it("pins the build command so build-views runs before next build", () => {
     expect(config.buildCommand).toBe("npm run build");
+  });
+
+  it("pins the Next.js framework preset (CLI-created projects default to Other)", () => {
+    expect(config.framework).toBe("nextjs");
   });
 });
