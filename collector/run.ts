@@ -10,12 +10,17 @@ import { pathToFileURL } from "node:url";
 import { SOURCES, type SourceConfig } from "../config/sources";
 import { resolveDataDir } from "../src/lib/data";
 import { SCHEMA_VERSION } from "../src/shared/constants";
-import type { Item } from "../src/shared/schema";
+import { Item as ItemSchema, type Item } from "../src/shared/schema";
 import { parseRss } from "./adapters/rss";
-import { classifyFetchError, fetchText as defaultFetchText, FetchError } from "./http";
+import {
+  classifyFetchError,
+  fetchText as defaultFetchText,
+  FetchError,
+  sanitizeMessage,
+} from "./http";
 import { buildMeta, resolveTrigger, type SourceResult } from "./meta";
 import { mergeItems } from "./pipeline/merge";
-import { normalizeEntry } from "./pipeline/normalize";
+import { normalizeEntryResult } from "./pipeline/normalize";
 import { readState, writeState } from "./store";
 
 export type RunStatus = "ok" | "partial" | "failed";
@@ -48,11 +53,28 @@ export async function runCollector(
     try {
       const { text } = await fetchText(source.url);
       const entries = parseRss(text);
-      const fresh = entries
-        .map((e) => normalizeEntry(e, source, startedAt))
-        .filter((i): i is Item => i !== null);
+      // Each entry is validated on its own (CR-01): a bad one is dropped and
+      // logged, it never aborts the run for every other item and source.
+      const fresh: Item[] = [];
+      const dropReasons: string[] = [];
+      for (const entry of entries) {
+        const r = normalizeEntryResult(entry, source, startedAt);
+        if (r.ok) {
+          fresh.push(r.item);
+        } else {
+          dropReasons.push(r.reason);
+          console.warn(
+            `[collect] ${source.id} dropped entry: ${r.reason} link=${sanitizeMessage(entry.link, 200)}`,
+          );
+        }
+      }
       if (fresh.length === 0) {
-        throw new FetchError("parser_contract", null, `0 of ${entries.length} entries usable`);
+        const why = [...new Set(dropReasons)].join("; ");
+        throw new FetchError(
+          "parser_contract",
+          null,
+          `0 of ${entries.length} entries usable${why ? ` (${why})` : ""}`,
+        );
       }
       const before = new Set(items.map((i) => i.id));
       items = mergeItems(items, fresh, startedAt, {
@@ -72,6 +94,15 @@ export async function runCollector(
 
   // Window the stored set even when every source failed (still no churn if nothing aged out).
   items = mergeItems(items, [], startedAt, { sourceFirstRun: false });
+  // Defense in depth (CR-01): drop and log anything the per-entry check missed
+  // instead of letting ItemsFile.parse in writeState abort the whole run.
+  items = items.filter((item) => {
+    const check = ItemSchema.safeParse(item);
+    if (!check.success) {
+      console.warn(`[collect] dropped schema-invalid item ${String(item.id)} before write`);
+    }
+    return check.success;
+  });
   const itemsNew = items.filter((i) => !prevIds.has(i.id)).length;
 
   const meta = buildMeta({

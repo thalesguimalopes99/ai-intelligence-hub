@@ -93,6 +93,42 @@ describe("runCollector", () => {
     );
   });
 
+  it("drops schema-invalid entries instead of aborting the run (CR-01)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const feed = (items: string) =>
+      `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title><link>https://openai.com/news</link><description>d</description>${items}</channel></rss>`;
+    const entry = (title: string, link: string, pubDate: string) =>
+      `<item><title>${title}</title><link>${link}</link><pubDate>${pubDate}</pubDate></item>`;
+    const xmlMixed = feed(
+      entry("Good", "https://openai.com/index/good", "Mon, 05 Oct 2026 15:00:00 GMT") +
+        entry("IDN", "https://пример.рф/a", "Mon, 05 Oct 2026 15:00:00 GMT") +
+        entry("IP", "https://1.2.3.4/a", "Mon, 05 Oct 2026 15:00:00 GMT"),
+    );
+    const r = await runCollector({
+      dataDir: dir,
+      now: at("2026-10-06T12:00:00Z"),
+      env: {},
+      fetchText: async () => ({ status: 200, text: xmlMixed }),
+    });
+    expect(r.runStatus).toBe("ok");
+    const items = readItems().items;
+    expect(items.map((i) => i.title)).toEqual(["Good"]);
+    expect(readMeta().sources[0]).toMatchObject({ status: "ok", itemsFetched: 1, itemsNew: 1 });
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("dropped entry"));
+
+    // A source where no entry survives keeps the parser_contract semantics.
+    const onlyBad = feed(entry("IP", "https://1.2.3.4/a", "Mon, 05 Oct 2026 15:00:00 GMT"));
+    const r2 = await runCollector({
+      dataDir: dir,
+      now: at("2026-10-06T13:00:00Z"),
+      env: {},
+      fetchText: async () => ({ status: 200, text: onlyBad }),
+    });
+    expect(r2.runStatus).toBe("failed");
+    expect(readMeta().sources[0]).toMatchObject({ status: "error", errorKind: "parser_contract" });
+    expect(readItems().items.map((i) => i.title)).toEqual(["Good"]);
+  });
+
   it("writes the GITHUB_OUTPUT contract", async () => {
     const out = path.join(dir, "gh-output.txt");
     const { writeGithubOutput } = await import("../collector/run");

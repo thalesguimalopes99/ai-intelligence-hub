@@ -9,7 +9,7 @@ import { SOURCES } from "../config/sources";
 import { parseRss } from "../collector/adapters/rss";
 import { classifyFetchError, FetchError } from "../collector/http";
 import { canonicalUrl, idFromUrl } from "../collector/pipeline/canonical-url";
-import { normalizeEntry } from "../collector/pipeline/normalize";
+import { normalizeEntry, normalizeEntryResult } from "../collector/pipeline/normalize";
 import { Item } from "@/shared/schema";
 
 const NOW = "2026-10-06T12:00:00.000Z";
@@ -166,6 +166,29 @@ describe("normalizeEntry", () => {
     // grapheme-safe: no lone surrogate at the end
     expect(it.excerpt).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
     expect(it.excerpt.startsWith("word word")).toBe(true);
+  });
+
+  it("drops entries the Item schema rejects instead of returning them (CR-01)", () => {
+    const raw = (link: string, pubDate = "Mon, 05 Oct 2026 15:00:00 GMT") => ({
+      title: "t",
+      link,
+      description: "",
+      pubDate,
+      guid: "",
+    });
+    // IDN host (punycode TLD) and IP host: z.httpUrl() rejects both.
+    const idn = normalizeEntryResult(raw("https://пример.рф/a"), source, NOW);
+    expect(idn.ok).toBe(false);
+    expect(normalizeEntry(raw("https://пример.рф/a"), source, NOW)).toBeNull();
+    const ip = normalizeEntryResult(raw("https://1.2.3.4/a"), source, NOW);
+    expect(ip).toEqual({ ok: false, reason: expect.stringContaining("url") });
+    // Year >= 10000 → '+010000-…' fails z.iso.datetime(): dropped, not written.
+    const y10k = normalizeEntryResult(
+      raw("https://openai.com/index/y10k", "Sat, 01 Jan 10000 00:00:00 GMT"),
+      source,
+      NOW,
+    );
+    expect(y10k).toEqual({ ok: false, reason: expect.stringContaining("publishedAt") });
   });
 
   it("does not add an ellipsis when the excerpt fits", () => {

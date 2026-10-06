@@ -1,6 +1,6 @@
 // RawEntry -> Item with the full schema and neutral intelligence fields (D-02).
 import type { SourceConfig } from "../../config/sources";
-import type { Item } from "../../src/shared/schema";
+import { Item } from "../../src/shared/schema";
 import type { RawEntry } from "../adapters/rss";
 import { canonicalUrl, idFromUrl } from "./canonical-url";
 
@@ -30,16 +30,26 @@ function toIso(pubDate: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-/** Returns null (never throws) for unusable entries: bad link or empty title. */
-export function normalizeEntry(entry: RawEntry, source: SourceConfig, nowIso: string): Item | null {
+export type NormalizeResult = { ok: true; item: Item } | { ok: false; reason: string };
+
+/**
+ * Never throws. Every returned item already passed the zod `Item` schema, so
+ * one bad feed entry is dropped (with a reason) at the source boundary instead
+ * of aborting the whole run at write time (CR-01).
+ */
+export function normalizeEntryResult(
+  entry: RawEntry,
+  source: SourceConfig,
+  nowIso: string,
+): NormalizeResult {
   const url = canonicalUrl(entry.link);
-  if (url === null) return null;
+  if (url === null) return { ok: false, reason: "link is not an absolute http(s) URL" };
   const title = truncateGraphemes(collapse(entry.title), TITLE_MAX);
-  if (title === "") return null;
+  if (title === "") return { ok: false, reason: "empty title" };
 
   const id = idFromUrl(url);
   const publishedAt = toIso(entry.pubDate);
-  return {
+  const candidate: Item = {
     id,
     url,
     title,
@@ -60,4 +70,16 @@ export function normalizeEntry(entry: RawEntry, source: SourceConfig, nowIso: st
     scoreBreakdown: { source: 0, boosts: 0, coverage: 0, penalties: 0, ageDecay: 0 },
     isHighlight: false,
   };
+  const parsed = Item.safeParse(candidate);
+  if (!parsed.success) {
+    const fields = [...new Set(parsed.error.issues.map((i) => i.path.join(".") || "(root)"))];
+    return { ok: false, reason: `schema-invalid field(s): ${fields.join(", ")}` };
+  }
+  return { ok: true, item: parsed.data };
+}
+
+/** Returns null (never throws) for unusable or schema-invalid entries. */
+export function normalizeEntry(entry: RawEntry, source: SourceConfig, nowIso: string): Item | null {
+  const result = normalizeEntryResult(entry, source, nowIso);
+  return result.ok ? result.item : null;
 }
