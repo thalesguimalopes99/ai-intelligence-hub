@@ -39,3 +39,13 @@ Thumbs.db
 .kimi/
 .github/agents/
 .env.example
+
+# Next.js / Vercel build output
+/.next/
+/out/
+/coverage
+.vercel
+*.tsbuildinfo
+
+# Generated data views (DATA-08), built from data/ at build time
+/public/data/
