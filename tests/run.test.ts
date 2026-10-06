@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FetchError } from "../collector/http";
 import { runCollector } from "../collector/run";
 import { ItemsFile, Meta } from "@/shared/schema";
+import { serializeItemsFile } from "@/shared/serialize";
 
 const xml = fs.readFileSync(path.resolve("tests/fixtures/feeds/openai.xml"), "utf8");
 const okFetch = async () => ({ status: 200, text: xml });
@@ -91,6 +92,28 @@ describe("runCollector", () => {
     expect(console.error).toHaveBeenCalledWith(
       expect.stringContaining("[collect] openai-news failed: blocked http=403"),
     );
+  });
+
+  it("loads legacy items without canonicalUrl and upgrades them on the next run (CR-02)", async () => {
+    await runCollector({ dataDir: dir, now: at("2026-10-06T12:00:00Z"), env: {}, fetchText: okFetch });
+    const file = path.join(dir, "items.json");
+    // Rewrite as pre-CR-02 data: no canonicalUrl, url = canonical form.
+    const legacy = readItems().items.map(({ canonicalUrl, ...rest }) => ({
+      ...rest,
+      url: canonicalUrl!,
+    }));
+    fs.writeFileSync(file, serializeItemsFile({ schemaVersion: 1, items: legacy }));
+    expect(readItems().items.every((i) => i.canonicalUrl === undefined)).toBe(true);
+
+    const r = await runCollector({ dataDir: dir, now: at("2026-10-06T13:00:00Z"), env: {}, fetchText: okFetch });
+    expect(r).toEqual({ itemsNew: 0, runStatus: "ok" });
+    const upgraded = readItems().items;
+    expect(upgraded.every((i) => typeof i.canonicalUrl === "string")).toBe(true);
+    expect(upgraded.map((i) => i.firstSeenAt)).toEqual(legacy.map((i) => i.firstSeenAt));
+
+    const before = fs.readFileSync(file);
+    await runCollector({ dataDir: dir, now: at("2026-10-06T14:00:00Z"), env: {}, fetchText: okFetch });
+    expect(fs.readFileSync(file).equals(before)).toBe(true);
   });
 
   it("drops schema-invalid entries instead of aborting the run (CR-01)", async () => {

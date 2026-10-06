@@ -1,6 +1,7 @@
 // Single data contract shared by the collector (output validator) and the site
 // (input contract). Complete for all phases (DATA-01, DATA-07, D-02): later
-// phases fill the intelligence fields, they never add a migration.
+// phases fill the intelligence fields, they never add a migration. The only
+// post-Phase-1 change is the additive, optional Item.canonicalUrl (CR-02).
 // Framework-free: no next/react imports.
 import { z } from "zod";
 import { CATEGORIES, SCHEMA_VERSION } from "./constants";
@@ -33,8 +34,15 @@ export const ClusterInfo = z.object({
 // No per-run volatile fields here (Pitfall 5): an unchanged item must
 // serialize to the same line on every run.
 export const Item = z.object({
-  id: z.string().regex(/^[0-9a-f]{16}$/), // sha256(canonicalUrl).slice(0, 16)
-  url: z.httpUrl(), // canonical; rejects javascript:/data: (T-01-04)
+  id: z.string().regex(/^[0-9a-f]{16}$/), // sha256(canonicalUrl ?? url).slice(0, 16)
+  // The original link exactly as the source published it (trimmed): this is
+  // what the site opens (CR-02). Rejects javascript:/data: (T-01-04).
+  url: z.httpUrl(),
+  // Canonical form (normalize-url: no www/utm/hash, https) used ONLY for the
+  // id and dedupe, never shown. Optional for backward compatibility: items
+  // written before CR-02 lack it, and their `url` already IS the canonical
+  // form. The collector fills it in when such an item is seen again.
+  canonicalUrl: z.httpUrl().optional(),
   title: z.string().min(1).max(500),
   excerpt: z.string().max(280), // plain text; '' allowed
   lang: z.string().min(2).max(10),

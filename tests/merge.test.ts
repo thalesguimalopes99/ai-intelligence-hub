@@ -60,6 +60,24 @@ describe("mergeItems", () => {
     expect(later.find((i) => i.id === a.id)!.isBackfill).toBe(true);
   });
 
+  it("upgrades a legacy item (no canonicalUrl) with the feed's original link once (CR-02)", () => {
+    const legacy = { ...a, isBackfill: true }; // pre-CR-02: url is the canonical form
+    const fresh = {
+      ...a,
+      url: "https://www.openai.com/index/a/",
+      canonicalUrl: a.url,
+      firstSeenAt: NOW,
+      title: "Edited upstream",
+    };
+    const out = mergeItems([legacy], [fresh], NOW, { sourceFirstRun: false });
+    expect(out[0]).toEqual({ ...legacy, url: fresh.url, canonicalUrl: a.url });
+    // Upgraded items are stable: the next merge changes nothing.
+    const again = mergeItems(out, [{ ...fresh, url: "https://openai.com/index/a?x" }], NOW, {
+      sourceFirstRun: false,
+    });
+    expect(again).toEqual(out);
+  });
+
   it("does not mutate its inputs", () => {
     const prev = [a];
     const fresh = [b];

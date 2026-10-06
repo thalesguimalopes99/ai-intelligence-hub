@@ -1,10 +1,11 @@
 // CI/manual validation of the committed data/ directory (honours DATA_DIR, so
 // data extracted from origin/main into a scratch dir can be checked too).
-// Checks: zod schemas, unique item ids, and that items.json is byte-identical
+// Checks: zod schemas, unique item ids derived from the canonical URL, and that items.json is byte-identical
 // to its stable serialization (DATA-08). Exit 1 on any failure.
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { idFromUrl } from "../collector/pipeline/canonical-url";
 import { loadItemsFile, loadMeta, resolveDataDir } from "../src/lib/data";
 import { serializeItemsFile } from "../src/shared/serialize";
 
@@ -18,6 +19,11 @@ export function validateData(dataDir: string): string[] {
     for (const item of parsed.items) {
       if (ids.has(item.id)) throw new Error(`${itemsPath}: duplicate item id ${item.id}`);
       ids.add(item.id);
+      // id derives from the canonical URL; legacy (pre-CR-02) items have no
+      // canonicalUrl and their url is the canonical form.
+      if (idFromUrl(item.canonicalUrl ?? item.url) !== item.id) {
+        throw new Error(`${itemsPath}: item ${item.id} id does not match its canonical URL`);
+      }
     }
     const text = fs.readFileSync(itemsPath, "utf8");
     if (serializeItemsFile(parsed) !== text) {

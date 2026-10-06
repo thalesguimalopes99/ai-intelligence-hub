@@ -97,9 +97,29 @@ describe("normalizeEntry", () => {
     const again = entries.map((e) => normalizeEntry(e, source, NOW));
     expect(again.map((i) => i?.id)).toEqual(items.map((i) => i?.id));
     for (const it of valid) {
-      expect(it.id).toBe(createHash("sha256").update(it.url).digest("hex").slice(0, 16));
+      expect(it.canonicalUrl).toBeDefined();
+      expect(it.id).toBe(
+        createHash("sha256").update(it.canonicalUrl!).digest("hex").slice(0, 16),
+      );
     }
     expect(new Set(valid.map((i) => i.id)).size).toBe(valid.length);
+  });
+
+  it("keeps the original link for display and the canonical one only for the id (CR-02)", () => {
+    const raw = (link: string) => ({ title: "t", link, description: "", pubDate: "", guid: "" });
+    const gh = normalizeEntry(raw("  https://github.com/a/b/tree?ref=main  "), source, NOW)!;
+    expect(gh.url).toBe("https://github.com/a/b/tree?ref=main");
+    expect(gh.canonicalUrl).toBe("https://github.com/a/b/tree");
+    expect(gh.id).toBe(idFromUrl("https://github.com/a/b/tree"));
+
+    const www = normalizeEntry(raw("http://www.example.com/app/#/route?x=1"), source, NOW)!;
+    expect(www.url).toBe("http://www.example.com/app/#/route?x=1");
+    expect(www.canonicalUrl).toBe("https://example.com/app");
+
+    // Same article via a tracking link → same id (dedupe still works).
+    const tracked = normalizeEntry(raw("https://www.example.com/app?utm_source=x"), source, NOW)!;
+    expect(tracked.id).toBe(www.id);
+    expect(tracked.url).toBe("https://www.example.com/app?utm_source=x");
   });
 
   it("sets source fields and neutral intelligence fields (D-02)", () => {

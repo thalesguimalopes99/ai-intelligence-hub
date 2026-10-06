@@ -91,6 +91,14 @@ describe("Item schema", () => {
     expect(Item.safeParse(makeItem({ url: "javascript:alert(1)" })).success).toBe(false);
   });
 
+  it("canonicalUrl is optional (legacy items) but must be http(s) when present (CR-02)", () => {
+    expect(Item.safeParse(makeItem()).success).toBe(true);
+    expect(
+      Item.safeParse(makeItem({ canonicalUrl: "https://openai.com/index/some-post" })).success,
+    ).toBe(true);
+    expect(Item.safeParse(makeItem({ canonicalUrl: "javascript:alert(1)" })).success).toBe(false);
+  });
+
   it("rejects a data: URL", () => {
     expect(Item.safeParse(makeItem({ url: "data:text/html,<b>x</b>" })).success).toBe(false);
   });

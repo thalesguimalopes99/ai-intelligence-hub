@@ -30,6 +30,16 @@ function toIso(pubDate: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+/** The source's own link, trimmed and WHATWG-serialized; null unless http(s). */
+function originalUrl(raw: string): string | null {
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 export type NormalizeResult = { ok: true; item: Item } | { ok: false; reason: string };
 
 /**
@@ -42,16 +52,22 @@ export function normalizeEntryResult(
   source: SourceConfig,
   nowIso: string,
 ): NormalizeResult {
-  const url = canonicalUrl(entry.link);
+  // The canonical form only derives the id (dedupe); the reader gets the
+  // original link, because canonicalization (www/https/hash/ref) can point to
+  // a different or non-existent page (CR-02).
+  const canonical = canonicalUrl(entry.link);
+  if (canonical === null) return { ok: false, reason: "link is not an absolute http(s) URL" };
+  const url = originalUrl(entry.link);
   if (url === null) return { ok: false, reason: "link is not an absolute http(s) URL" };
   const title = truncateGraphemes(collapse(entry.title), TITLE_MAX);
   if (title === "") return { ok: false, reason: "empty title" };
 
-  const id = idFromUrl(url);
+  const id = idFromUrl(canonical);
   const publishedAt = toIso(entry.pubDate);
   const candidate: Item = {
     id,
     url,
+    canonicalUrl: canonical,
     title,
     excerpt: truncateGraphemes(collapse(entry.description), EXCERPT_MAX),
     lang: source.lang,

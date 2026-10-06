@@ -27,6 +27,7 @@ function makeItem(n: number, publishedAt: string | null, firstSeenAt: string): I
     lang: "en",
     excerpt: "",
     title: `Item ${n}`,
+    canonicalUrl: `https://openai.com/index/item-${n}`,
     url: `https://openai.com/index/item-${n}/`,
     id,
   });
