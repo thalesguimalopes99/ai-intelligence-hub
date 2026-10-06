@@ -133,6 +133,31 @@ describe("collect.yml (PIPE-01, PIPE-02, PIPE-04, D-03, D-04, D-10)", () => {
     expect(yaml).not.toMatch(/--force|\s-f\b|force/);
   });
 
+  it("push loop: no pull/sleep after the last attempt, safe abort, revalidation (WR-07)", () => {
+    const runs = extractRunBlocks(yaml).join("\n");
+    const start = runs.indexOf("for attempt in 1 2 3");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = runs.indexOf("\n          done", start);
+    expect(end).toBeGreaterThan(start);
+    const loop = runs.slice(start, end);
+    // The attempt-3 break comes before any sleep or pull in the loop body.
+    const breakAt = loop.indexOf('if [ "$attempt" -eq 3 ]; then');
+    expect(breakAt).toBeGreaterThan(0);
+    expect(loop.indexOf("break", breakAt)).toBeGreaterThan(breakAt);
+    expect(breakAt).toBeLessThan(loop.indexOf("sleep $((attempt * 5))"));
+    expect(breakAt).toBeLessThan(loop.indexOf("git pull --rebase origin main"));
+    // A pull failure is handled inside `if !` (immune to bash -e) and the
+    // abort can never mask the error annotation.
+    expect(loop).toContain("if ! git pull --rebase origin main; then");
+    expect(loop).toContain("git rebase --abort 2>/dev/null || true");
+    expect(loop.indexOf("git rebase --abort")).toBeLessThan(loop.indexOf("::error::Pull/rebase failed"));
+    expect(loop).not.toMatch(/git pull --rebase origin main \|\|/);
+    // Rebased data is revalidated before the next attempt.
+    expect(loop.indexOf("if ! npm run validate:data; then")).toBeGreaterThan(
+      loop.indexOf("git pull --rebase origin main"),
+    );
+  });
+
   it("invokes the collector with the trigger exposed via env", () => {
     expect(yaml).toMatch(/id: collect/);
     expect(yaml).toContain("npm run collect");

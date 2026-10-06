@@ -86,8 +86,23 @@ jobs:
               echo "pushed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            git pull --rebase origin main || { git rebase --abort; echo "::error::Rebase conflict"; exit 1; }
+            # Last attempt failed: stop here, no wasted pull/sleep.
+            if [ "$attempt" -eq 3 ]; then
+              break
+            fi
             sleep $((attempt * 5))
+            # `if !` keeps bash -e from killing the step before the annotation;
+            # the abort is best-effort (no rebase exists after a fetch failure).
+            if ! git pull --rebase origin main; then
+              git rebase --abort 2>/dev/null || true
+              echo "::error::Pull/rebase failed (conflict or network); data not pushed"
+              exit 1
+            fi
+            # The rebase replays our data commit onto a newer tip: revalidate it.
+            if ! npm run validate:data; then
+              echo "::error::Rebased data failed validation; not pushing"
+              exit 1
+            fi
           done
           echo "::error::Push failed after 3 attempts"
           exit 1
