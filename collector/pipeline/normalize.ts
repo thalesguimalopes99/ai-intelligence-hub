@@ -12,6 +12,56 @@ function collapse(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  hellip: "…",
+  mdash: "—",
+  ndash: "–",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  laquo: "«",
+  raquo: "»",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+};
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, body: string) => {
+    if (body[0] === "#") {
+      const code =
+        body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+      // Reject NUL, surrogates and out-of-range code points: keep the literal.
+      if (!Number.isInteger(code) || code <= 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) {
+        return match;
+      }
+      return String.fromCodePoint(code);
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? match;
+  });
+}
+
+/**
+ * RSS description / Atom summary often carry HTML: drop script/style bodies,
+ * comments and tags (block tags become spaces), then decode entities once.
+ * The result is plain text (schema: excerpt is plain text, WR-03). React
+ * escapes on render, so decoded '<' is shown literally, never interpreted.
+ */
+export function htmlToText(html: string): string {
+  const stripped = html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, " ")
+    .replace(/<\/?[a-z][^>]*>/gi, " ");
+  return decodeEntities(stripped);
+}
+
 /** Truncate on grapheme boundaries; the result (incl. ellipsis) is <= max UTF-16 units. */
 export function truncateGraphemes(text: string, max: number): string {
   if (text.length <= max) return text;
@@ -112,7 +162,7 @@ export function normalizeEntryResult(
     url,
     canonicalUrl: canonical,
     title,
-    excerpt: truncateGraphemes(collapse(entry.description), EXCERPT_MAX),
+    excerpt: truncateGraphemes(collapse(htmlToText(entry.description)), EXCERPT_MAX),
     lang: source.lang,
     sourceId: source.id,
     company: source.company,

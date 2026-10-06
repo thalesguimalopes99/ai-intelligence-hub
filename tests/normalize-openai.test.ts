@@ -257,6 +257,33 @@ describe("normalizeEntry", () => {
     expect(soon.publishedAt).toBe("2026-10-06T20:00:00.000Z");
   });
 
+  it("turns an HTML description into a plain-text excerpt (WR-03)", () => {
+    const html =
+      '<p>Hello&nbsp;<a href="https://x.y">world</a> &amp; friends &#8212; caf&#xE9;</p>' +
+      "<script>alert(1)</script><style>p{}</style><!-- note --><br/>Next&hellip; &bogus; &#0;";
+    const it = normalizeEntry(
+      { title: "t", link: "https://openai.com/index/html", description: html, pubDate: "", guid: "" },
+      source,
+      NOW,
+    )!;
+    expect(it.excerpt).toBe("Hello world & friends — café Next… &bogus; &#0;");
+    expect(it.excerpt).not.toMatch(/<[a-z/]/i);
+    // The 280 cut happens on text, never inside a tag.
+    const long = normalizeEntry(
+      {
+        title: "t",
+        link: "https://openai.com/index/html-long",
+        description: `<p>${"word ".repeat(80)}</p><a href="https://example.com/very/long">link</a>`,
+        pubDate: "",
+        guid: "",
+      },
+      source,
+      NOW,
+    )!;
+    expect(long.excerpt.length).toBeLessThanOrEqual(280);
+    expect(long.excerpt).not.toContain("<");
+  });
+
   it("does not add an ellipsis when the excerpt fits", () => {
     const it = normalizeEntry(
       {
