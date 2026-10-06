@@ -41,6 +41,8 @@ findings:
   info: 8
   total: 17
 status: issues_found
+fix_report: .planning/phases/01-walking-skeleton/01-REVIEW-FIX.md
+fix_status: critical_warning_fixed
 ---
 
 # Phase 1: Code Review Report
@@ -67,6 +69,8 @@ The remaining findings concern robustness: dates in the future or date-only, HTM
 
 ### CR-01: One schema-invalid item aborts the whole collection run (resilience broken)
 
+**Fix status:** fixed (386f3da) — see 01-REVIEW-FIX.md
+
 **File:** `collector/run.ts:50-62`, `collector/pipeline/normalize.ts:34-63`, `collector/store.ts:43-45`
 **Issue:** `normalizeEntry` only drops entries with a non-http(s) link or an empty title. Every other field is validated later and in bulk by `ItemsFile.parse` in `writeState`. If any item fails, the run throws and `main()` exits 1 with nothing written. The bad entry stays in the source's feed, so **every hourly run fails** until a human steps in. One bad entry thereby takes down every other source, which is exactly what the core value forbids. I confirmed these reachable inputs with the repo's own zod and normalize-url versions:
 - IDN domain: `https://пример.рф/a` → normalize-url gives `https://xn--e1afmkfd.xn--p1ai/a` → `z.httpUrl()` **rejects** it (the domain regex requires an alphabetic TLD `[a-zA-Z]{2,63}`).
@@ -85,6 +89,8 @@ As defense in depth, `run.ts` can also run `ItemsFile.safeParse` on `items` befo
 
 ### CR-02: The link shown to the reader is the rewritten canonical URL, not the original link
 
+**Fix status:** fixed (b1ffc1a) — see 01-REVIEW-FIX.md
+
 **File:** `collector/pipeline/normalize.ts:35,44`, `collector/pipeline/canonical-url.ts:10-17`, `src/app/page.tsx:62`
 **Issue:** `item.url = canonicalUrl(entry.link)`. The canonical form exists for the **id/dedupe**, but it applies destructive rules: `stripWWW` (many hosts do not serve the bare domain), `forceHttps` (an http-only site gets a broken link), `stripHash` (hash-routed SPAs lose their target) and `removeQueryParameters: ['ref', ...]`. I verified that `https://github.com/a/b/tree?ref=main` becomes `https://github.com/a/b/tree`, which is a different page (it loses the branch/tag). The core value requires "the correct link to the original source", and `schema.ts` declares the contract "complete for all phases… they never add a migration". As it stands there is no field that preserves the original link.
 **Fix:** Keep the canonical URL only to derive `id`, and store and render the original link (trimmed and validated as http(s)):
@@ -100,11 +106,15 @@ At most, apply only non-destructive rules to the displayed URL (remove `utm_*`/`
 
 ### WR-01: A future `publishedAt` pins the item to the top of the feed indefinitely
 
+**Fix status:** fixed (97328ab) — see 01-REVIEW-FIX.md
+
 **File:** `collector/pipeline/normalize.ts:27-31`, `collector/pipeline/merge.ts:28-30`, `src/shared/serialize.ts:14-29`
 **Issue:** `toIso` accepts any date. A feed with a typo (`2099-10-06`, which I confirmed parses and passes zod) produces an item sorted first forever. The 30-day window only cuts the past (`>= cutoff`), and since "stored items win" the value is never corrected even if the feed fixes it.
 **Fix:** In `toIso`/`normalizeEntry`, treat `publishedAt > now + 24h` as invalid (`publishedAt: null`, `datePrecision: "none"`, consistent with "never stamp now"). Alternatively, have the merge window also drop items beyond `now + tolerance`.
 
 ### WR-02: A date-only `pubDate` is stored as midnight UTC "datetime" and shown as the previous day; the `"day"` branch is dead
+
+**Fix status:** fixed: requires human verification (3406d66) — see 01-REVIEW-FIX.md
 
 **File:** `collector/pipeline/normalize.ts:27-31,52`, `src/lib/format-date.ts:17-25`
 **Issue:** `new Date("2026-10-06")` → `2026-10-06T00:00:00.000Z` (confirmed), and normalize always records `datePrecision: "datetime"`. On the site, `formatItemDate` converts to Brasília and shows `05/10/2026 · 21:00`, which is the wrong day and a time that does not exist in the source. The comment in `format-date.ts` says "the collector stores day-only dates as noon UTC", but no collector code does that. The `datePrecision === "day"` path is never produced.
@@ -112,11 +122,15 @@ At most, apply only non-destructive rules to the displayed URL (remove `utm_*`/`
 
 ### WR-03: The excerpt keeps raw HTML and entities, breaking the "plain text" contract
 
+**Fix status:** fixed (c8c932c) — see 01-REVIEW-FIX.md
+
 **File:** `collector/pipeline/normalize.ts:46`, `collector/adapters/rss.ts:41,50`, `src/shared/schema.ts:39`
 **Issue:** RSS `description` / Atom `summary` often carry HTML (`<p>`, `<a href>`, `&amp;nbsp;`). `collapse` only normalizes whitespace, and the 280-character cut can land in the middle of a tag. The schema documents `excerpt` as "plain text". The page does not render the excerpt yet, but the persisted data is already polluted (and protected against churn by "stored items win", so it will not be fixed retroactively). When a later phase renders it, it will show literal tags. React escapes, so this is not XSS, but it is a quality and data-integrity defect.
 **Fix:** Strip tags and decode entities before `collapse` (cheerio is already in the planned stack: `cheerio.load(html).text()`, or a simple regex plus an entity decoder), then truncate.
 
 ### WR-04: Relative links and permalink `guid` are not resolved, so an entire feed can fail with `parser_contract`
+
+**Fix status:** fixed (7798a8d) — see 01-REVIEW-FIX.md
 
 **File:** `collector/pipeline/canonical-url.ts:8`, `collector/adapters/rss.ts:38-44`
 **Issue:** `canonicalUrl` drops anything that does not start with `http(s)://`. Feeds with relative `<link>` (`/news/foo`, common in Atom with `xml:base`) or with no `<link>` but a `<guid isPermaLink="true">` lose every item. The source is then marked `parser_contract` even though the feed is valid. `RawEntry.guid` is collected and never used.
@@ -124,17 +138,23 @@ At most, apply only non-destructive rules to the displayed URL (remove `utm_*`/`
 
 ### WR-05: `MAX_FEED_BYTES` does not protect memory, because the body is fully buffered before the check
 
+**Fix status:** fixed (0d1bb10) — see 01-REVIEW-FIX.md
+
 **File:** `collector/http.ts:90-100`
 **Issue:** The early check depends on `content-length`. Chunked responses (no header) go to `await res.text()`, which buffers everything and only then compares `text.length` (UTF-16 units, not bytes). A huge or endless response is limited only by the time budget (`totalTimeout` 60 s), not by size.
 **Fix:** Read `res.body` with a reader and accumulate a byte count, calling `reader.cancel()` and throwing `FetchError("invalid", ...)` once `MAX_FEED_BYTES` is exceeded. Then decode with `TextDecoder`.
 
 ### WR-06: No global time budget for the run; the sequential loop will exceed `timeout-minutes: 10` as sources grow
 
+**Fix status:** fixed (b25bd78) — see 01-REVIEW-FIX.md
+
 **File:** `collector/run.ts:47-71`, `collector/http.ts:12-20`, `.github/workflows/collect.yml:28`
 **Issue:** Each source can take up to `totalTimeout` 60 s (plus body reading), and sources run serially. With the ~25 sources planned, the worst case (~25 min) exceeds the job's 10 minutes. GitHub kills the job and **nothing is written or committed**, so meta.json does not even record the health. CLAUDE.md prescribes an `AbortSignal.timeout(240_000)` global budget, which is not implemented. Latent in Phase 1 (1 source), but the contract is being set now.
 **Fix:** Create a global `AbortController` with a deadline (~4 min), pass `signal` to ky, and once the deadline passes mark the remaining sources as `timeout` without fetching. Add `p-limit` for concurrency when sources are added.
 
 ### WR-07: The push loop fails before logging an error, and its last iteration does a wasted pull and sleep
+
+**Fix status:** fixed: requires human verification (e51c07f) — see 01-REVIEW-FIX.md
 
 **File:** `.github/workflows/collect.yml:84-93`
 **Issue:**
