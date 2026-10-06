@@ -27,15 +27,50 @@ export function truncateGraphemes(text: string, max: number): string {
 /** A publish date further ahead than this is a feed typo, not a real date. */
 const FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
-function toIso(pubDate: string, nowIso: string): string | null {
-  if (!pubDate.trim()) return null;
-  const d = new Date(pubDate);
-  if (Number.isNaN(d.getTime())) return null;
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const ISO_DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+// RFC 822 date with no time part: '[Mon, ]05 Oct 2026'.
+const RFC822_DATE_ONLY = /^(?:[A-Za-z]{3},\s*)?(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}|\d{2})$/;
+
+/** Noon UTC of a calendar day, or null for an impossible date (e.g. 2026-02-31). */
+function noonUtc(year: number, month1: number, day: number): Date | null {
+  const d = new Date(Date.UTC(year, month1 - 1, day, 12));
+  return d.getUTCFullYear() === year && d.getUTCMonth() === month1 - 1 && d.getUTCDate() === day
+    ? d
+    : null;
+}
+
+/**
+ * Date-only input → noon UTC of that day, so the day never shifts when shown
+ * in UTC (UI-SPEC: day precision renders 'dd/MM/yyyy' in UTC, no time).
+ * Returns undefined when the input is not a date-only form.
+ */
+function parseDateOnly(text: string): Date | null | undefined {
+  const iso = ISO_DATE_ONLY.exec(text);
+  if (iso) return noonUtc(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  const rfc = RFC822_DATE_ONLY.exec(text);
+  if (rfc) {
+    const month = MONTHS.indexOf(rfc[2].toLowerCase());
+    if (month === -1) return null;
+    const yy = Number(rfc[3]);
+    return noonUtc(rfc[3].length === 2 ? 2000 + yy : yy, month + 1, Number(rfc[1]));
+  }
+  return undefined;
+}
+
+type ParsedDate = { iso: string; precision: "datetime" | "day" } | null;
+
+function toIso(pubDate: string, nowIso: string): ParsedDate {
+  const text = pubDate.trim();
+  if (!text) return null;
+  const dayOnly = parseDateOnly(text);
+  const d = dayOnly === undefined ? new Date(text) : dayOnly;
+  if (d === null || Number.isNaN(d.getTime())) return null;
   // Future dates (e.g. '2099-10-06') would pin the item to the top forever,
   // and stored items are never re-edited: treat them as unknown, never "now"
   // (WR-01). This also turns year >= 10000 into "no date" instead of a drop.
   if (d.getTime() > Date.parse(nowIso) + FUTURE_TOLERANCE_MS) return null;
-  return d.toISOString();
+  return { iso: d.toISOString(), precision: dayOnly === undefined ? "datetime" : "day" };
 }
 
 /** The source's own link, trimmed and WHATWG-serialized; null unless http(s). */
@@ -71,7 +106,7 @@ export function normalizeEntryResult(
   if (title === "") return { ok: false, reason: "empty title" };
 
   const id = idFromUrl(canonical);
-  const publishedAt = toIso(entry.pubDate, nowIso);
+  const date = toIso(entry.pubDate, nowIso);
   const candidate: Item = {
     id,
     url,
@@ -82,8 +117,8 @@ export function normalizeEntryResult(
     sourceId: source.id,
     company: source.company,
     kind: source.kind,
-    publishedAt,
-    datePrecision: publishedAt === null ? "none" : "datetime",
+    publishedAt: date?.iso ?? null,
+    datePrecision: date?.precision ?? "none",
     firstSeenAt: nowIso,
     isBackfill: false, // merge decides
     categories: [],

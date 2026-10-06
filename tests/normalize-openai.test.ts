@@ -10,6 +10,7 @@ import { parseRss } from "../collector/adapters/rss";
 import { classifyFetchError, FetchError } from "../collector/http";
 import { canonicalUrl, idFromUrl } from "../collector/pipeline/canonical-url";
 import { normalizeEntry, normalizeEntryResult } from "../collector/pipeline/normalize";
+import { formatItemDate } from "@/lib/format-date";
 import { Item } from "@/shared/schema";
 
 const NOW = "2026-10-06T12:00:00.000Z";
@@ -212,6 +213,33 @@ describe("normalizeEntry", () => {
     expect(y10k).not.toBeNull();
     expect(() => Item.parse(y10k)).not.toThrow();
     expect(y10k.publishedAt).toBeNull();
+  });
+
+  it("stores a date-only pubDate as noon UTC with datePrecision 'day' (WR-02)", () => {
+    const raw = (pubDate: string) => ({
+      title: "t",
+      link: "https://openai.com/index/day",
+      description: "",
+      pubDate,
+      guid: "",
+    });
+    for (const input of ["2026-10-05", "Mon, 05 Oct 2026", "05 Oct 2026", " 5 Oct 26 "]) {
+      const it = normalizeEntry(raw(input), source, NOW)!;
+      expect(it, input).toMatchObject({
+        publishedAt: "2026-10-05T12:00:00.000Z",
+        datePrecision: "day",
+      });
+      expect(formatItemDate(it)).toBe("05/10/2026");
+    }
+    // Impossible day → no date, never a rolled-over one.
+    expect(normalizeEntry(raw("2026-02-31"), source, NOW)).toMatchObject({
+      publishedAt: null,
+      datePrecision: "none",
+    });
+    // A time component keeps full precision.
+    expect(normalizeEntry(raw("2026-10-05T15:00:00Z"), source, NOW)!.datePrecision).toBe(
+      "datetime",
+    );
   });
 
   it("treats a publish date more than 24h in the future as unknown (WR-01)", () => {

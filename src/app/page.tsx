@@ -76,7 +76,12 @@ export default function Home() {
                       className="ml-1 inline align-[-2px] text-fg-muted group-hover:text-accent group-focus-visible:text-accent"
                     />
                     <time
-                      dateTime={item.publishedAt ?? undefined}
+                      dateTime={
+                        // Day precision: a date-only value, no fake noon time (WR-02).
+                        item.datePrecision === "day"
+                          ? item.publishedAt?.slice(0, 10)
+                          : (item.publishedAt ?? undefined)
+                      }
                       className="mt-2 block text-sm text-fg-muted tabular-nums"
                     >
                       {formatItemDate(item)}

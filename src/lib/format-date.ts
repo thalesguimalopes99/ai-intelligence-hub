@@ -15,9 +15,11 @@ export function formatAbsolute(iso: string): string {
 }
 
 /**
- * datetime → 'dd/MM/yyyy · HH:mm' (Brasília); day → 'dd/MM/yyyy' in UTC (the
- * collector stores day-only dates as noon UTC, so the day never shifts);
- * null/none → 'Data não informada' (never "now", never firstSeenAt).
+ * datetime → 'dd/MM/yyyy · HH:mm' (Brasília); day → 'dd/MM/yyyy' in UTC with
+ * no time (collector/pipeline/normalize.ts stores a date-only pubDate such as
+ * '2026-10-06' or 'Tue, 06 Oct 2026' as noon UTC with datePrecision 'day', so
+ * the day never shifts); null/none → 'Data não informada' (never "now", never
+ * firstSeenAt).
  */
 export function formatItemDate(item: Pick<Item, "publishedAt" | "datePrecision">): string {
   if (item.publishedAt === null || item.datePrecision === "none") return "Data não informada";
