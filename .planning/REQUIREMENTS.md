@@ -8,7 +8,7 @@
 ### Pipeline & Deploy (PIPE)
 
 - [ ] **PIPE-01**: Collector runs automatically every hour on GitHub Actions (off-minute cron) and can also be triggered manually, with no local machine involved
-- [ ] **PIPE-02**: Each run commits updated data to the repo only when data changed (plus `meta.json`), authored so that Vercel Hobby accepts the deploy
+- [x] **PIPE-02**: Each run commits updated data to the repo only when data changed (plus `meta.json`), authored so that Vercel Hobby accepts the deploy
 - [ ] **PIPE-03**: Every data commit produces a Vercel production deployment of the site automatically (proven with a scheduled, not manual, run)
 - [ ] **PIPE-04**: Concurrent runs never corrupt data (concurrency group without cancel, rebase-and-retry push, idempotent merge)
 - [x] **PIPE-05**: Repo is public under the owner's personal GitHub account; only `main` deploys on Vercel
@@ -37,7 +37,7 @@
 - [ ] **DATA-04**: A source's first run is treated as backfill so old posts don't flood highlights
 - [ ] **DATA-05**: New data is merged into the previous dataset (never replaced); `items.json` keeps a 30-day window
 - [ ] **DATA-06**: Items older than the window are preserved in upsert-only monthly archives (`archive/AAAA-MM.json`)
-- [ ] **DATA-07**: `meta.json` records `lastRunAt`, `lastSuccessAt` and per-source health (status, last success, consecutive failures, error kind)
+- [x] **DATA-07**: `meta.json` records `lastRunAt`, `lastSuccessAt` and per-source health (status, last success, consecutive failures, error kind)
 - [ ] **DATA-08**: Writes are atomic with stable serialization (minimal git diffs); a prebuild step derives compact client views into gitignored `public/data/`
 
 ### Intelligence (INTL)
@@ -57,7 +57,7 @@
 - [ ] **FEED-03**: User can filter by company, category and period; filters live in the URL and are shareable
 - [ ] **FEED-04**: User can search titles and excerpts by text
 - [ ] **FEED-05**: User sees a Destaques section (major launches, last 48h, max ~4, never empty)
-- [ ] **FEED-06**: User sees a LIVE indicator computed in the browser from `lastSuccessAt` (LIVE <90 min · "atrasado" 90–180 · "parado" >180) and the last update time, refreshed by polling `meta.json` without page reload
+- [x] **FEED-06**: User sees a LIVE indicator computed in the browser from `lastSuccessAt` (LIVE <90 min · "atrasado" 90–180 · "parado" >180) and the last update time, refreshed by polling `meta.json` without page reload
 - [ ] **FEED-07**: When new items arrive while reading, user sees an "N novidades" pill; the list never reorders by itself
 - [ ] **FEED-08**: User can copy/share an item (title + link + source) via Web Share or clipboard
 - [ ] **FEED-09**: User can open "Por que 82?" to see the score breakdown
@@ -127,7 +127,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PIPE-01 | Phase 1 | Pending |
-| PIPE-02 | Phase 1 | Pending |
+| PIPE-02 | Phase 1 | Complete |
 | PIPE-03 | Phase 1 | In Progress (first leg: push -> prod deploy proven in 01-06; scheduled-run leg pending 01-07/01-08) |
 | PIPE-04 | Phase 1 | Pending |
 | PIPE-05 | Phase 1 | Complete |
@@ -150,7 +150,7 @@
 | DATA-04 | Phase 2 | Pending |
 | DATA-05 | Phase 2 | Pending |
 | DATA-06 | Phase 2 | Pending |
-| DATA-07 | Phase 1 | Pending |
+| DATA-07 | Phase 1 | Complete |
 | DATA-08 | Phase 1 | Pending |
 | INTL-01 | Phase 2 | Pending |
 | INTL-02 | Phase 6 | Pending |
@@ -164,7 +164,7 @@
 | FEED-03 | Phase 5 | Pending |
 | FEED-04 | Phase 5 | Pending |
 | FEED-05 | Phase 7 | Pending |
-| FEED-06 | Phase 1 | Pending |
+| FEED-06 | Phase 1 | Complete |
 | FEED-07 | Phase 4 | Pending |
 | FEED-08 | Phase 4 | Pending |
 | FEED-09 | Phase 7 | Pending |
