@@ -1,0 +1,33 @@
+# Code CI: typecheck, lint, tests, data validation, build and static-route guard.
+# Data-only commits are skipped (D-04); commits pushed with GITHUB_TOKEN by the
+# collect workflow do not trigger workflows at all.
+# Fork PRs run on the plain pull_request event, read-only, without any repo secret.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['data/**']
+  pull_request:
+    paths-ignore: ['data/**']
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run validate:data
+      - run: npm run build
+      - run: npm run check:static
