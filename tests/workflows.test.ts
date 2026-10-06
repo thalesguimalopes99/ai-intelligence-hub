@@ -171,3 +171,65 @@ describe("collect.yml (PIPE-01, PIPE-02, PIPE-04, D-03, D-04, D-10)", () => {
     expect(yaml).not.toContain("pull_request_target");
   });
 });
+
+describe("ci.yml (PIPE-06, D-04, T-01-08)", () => {
+  const yaml = readText(".github/workflows/ci.yml");
+
+  it("runs on pushes to main and on pull requests, both ignoring data/**", () => {
+    expect(yaml).toMatch(/^\s+push:\s*$/m);
+    expect(yaml).toMatch(/branches: \[main\]/);
+    expect(yaml).toMatch(/^\s+pull_request:\s*$/m);
+    const ignores = yaml.split("\n").filter((l) => l.includes("paths-ignore"));
+    expect(ignores).toHaveLength(2);
+    for (const line of ignores) expect(line).toContain("'data/**'");
+  });
+
+  it("is read-only, never uses pull_request_target and references no secrets", () => {
+    expect(yaml).toContain("contents: read");
+    expect(yaml).not.toContain("contents: write");
+    expect(yaml).not.toContain("pull_request_target");
+    expect(yaml).not.toContain("secrets.");
+  });
+
+  it("uses the pinned toolchain", () => {
+    expect(yaml).toContain("actions/checkout@v7");
+    expect(yaml).toContain("actions/setup-node@v7");
+    expect(yaml).toContain(".nvmrc");
+  });
+
+  it("runs the quality gates in order, ending with the static-route guard", () => {
+    const commands = [
+      "run: npm ci",
+      "run: npm run typecheck",
+      "run: npm run lint",
+      "run: npm test",
+      "run: npm run validate:data",
+      "run: npm run build",
+      "run: npm run check:static",
+    ];
+    const positions = commands.map((cmd) => yaml.indexOf(cmd));
+    for (const [i, pos] of positions.entries()) {
+      expect(pos, commands[i]).toBeGreaterThanOrEqual(0);
+      if (i > 0) expect(pos, commands[i]).toBeGreaterThan(positions[i - 1]);
+    }
+  });
+
+  it("never interpolates ${{ }} inside a run: script", () => {
+    for (const block of extractRunBlocks(yaml)) expect(block).not.toContain("${{");
+  });
+});
+
+describe("vercel.json (PIPE-05)", () => {
+  const config = JSON.parse(readText("vercel.json")) as {
+    buildCommand?: string;
+    git?: { deploymentEnabled?: Record<string, boolean> };
+  };
+
+  it("deploys only main", () => {
+    expect(config.git?.deploymentEnabled).toEqual({ "**": false, main: true });
+  });
+
+  it("pins the build command so build-views runs before next build", () => {
+    expect(config.buildCommand).toBe("npm run build");
+  });
+});
