@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "lastRunAt": "2026-10-06T13:34:18.471Z",
+  "lastSuccessAt": "2026-10-06T13:34:18.471Z",
+  "lastRunStatus": "ok",
+  "run": {
+    "startedAt": "2026-10-06T13:34:18.205Z",
+    "finishedAt": "2026-10-06T13:34:18.471Z",
+    "durationMs": 266,
+    "trigger": "workflow_dispatch",
+    "sourcesOk": 1,
+    "sourcesFailed": 0,
+    "itemsTotal": 68,
+    "itemsNew": 68
+  },
+  "sources": [
+    {
+      "id": "openai-news",
+      "name": "OpenAI News",
+      "url": "https://openai.com/news/rss.xml",
+      "status": "ok",
+      "optional": false,
+      "lastAttemptAt": "2026-10-06T13:34:18.471Z",
+      "lastSuccessAt": "2026-10-06T13:34:18.471Z",
+      "consecutiveFailures": 0,
+      "errorKind": null,
+      "httpStatus": null,
+      "message": null,
+      "itemsFetched": 1247,
+      "itemsNew": 68
+    }
+  ]
+}
