@@ -10,7 +10,12 @@ import { DATA_DIR_DEFAULT, SCHEMA_VERSION } from "../shared/constants";
 import { ItemsFile, Meta } from "../shared/schema";
 
 export function resolveDataDir(): string {
-  return path.resolve(process.cwd(), process.env.DATA_DIR ?? DATA_DIR_DEFAULT);
+  // Read only at build time for a fully static route: tell Turbopack not to
+  // trace the whole project into server output because of this dynamic path.
+  return path.resolve(
+    /*turbopackIgnore: true*/ process.cwd(),
+    process.env.DATA_DIR ?? DATA_DIR_DEFAULT,
+  );
 }
 
 function readIfExists(file: string): string | null {
