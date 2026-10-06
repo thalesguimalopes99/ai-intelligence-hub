@@ -3,6 +3,7 @@
 #   - every dynamic value reaches the shell through env:, never via an expression inside run:
 #   - only data/ is staged; commit identity is the owner noreply address (D-10)
 #   - runs are serialized (group collect, no cancellation) and check out the branch tip
+#   - schedule is best-effort on GitHub (delays/drops happen); meta.json lastSuccessAt is the source of truth
 name: collect
 
 on:
