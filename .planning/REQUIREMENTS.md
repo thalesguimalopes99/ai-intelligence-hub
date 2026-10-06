@@ -12,7 +12,7 @@
 - [ ] **PIPE-03**: Every data commit produces a Vercel production deployment of the site automatically (proven with a scheduled, not manual, run)
 - [ ] **PIPE-04**: Concurrent runs never corrupt data (concurrency group without cancel, rebase-and-retry push, idempotent merge)
 - [ ] **PIPE-05**: Repo is public under the owner's personal GitHub account; only `main` deploys on Vercel
-- [ ] **PIPE-06**: A CI workflow runs typecheck, lint and tests on code changes (not on data-only commits) and fails if any route becomes dynamic
+- [x] **PIPE-06**: A CI workflow runs typecheck, lint and tests on code changes (not on data-only commits) and fails if any route becomes dynamic
 
 ### Collection (COLL)
 
@@ -131,7 +131,7 @@
 | PIPE-03 | Phase 1 | Pending |
 | PIPE-04 | Phase 1 | Pending |
 | PIPE-05 | Phase 1 | Pending |
-| PIPE-06 | Phase 1 | Pending |
+| PIPE-06 | Phase 1 | Complete |
 | COLL-01 | Phase 2 | Pending |
 | COLL-02 | Phase 3 | Pending |
 | COLL-03 | Phase 3 | Pending |

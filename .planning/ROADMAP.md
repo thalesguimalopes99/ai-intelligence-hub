@@ -40,12 +40,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. The committed `items.json` and `meta.json` validate against the shared zod schema, which already includes `publishedAt`/`datePrecision`/`firstSeenAt`, cluster fields, `scoreBreakdown`, `schemaVersion`, `lastRunAt`/`lastSuccessAt` and per-source health
   5. A code-change PR runs typecheck, lint and tests and fails if any route becomes dynamic; data-only commits skip CI
 
-**Plans:** 8 plans
+**Plans:** 1/8 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Toolchain scaffold (Next 16/TS 6/Tailwind 4/ESLint 9/Vitest 5), static PT-BR shell, static-route guard (package legitimacy checkpoint)
+- [x] 01-01-PLAN.md — Toolchain scaffold (Next 16/TS 6/Tailwind 4/ESLint 9/Vitest 5), static PT-BR shell, static-route guard (package legitimacy checkpoint)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -230,7 +230,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Walking Skeleton | 0/8 | Not started | - |
+| 1. Walking Skeleton | 1/8 | In Progress|  |
 | 2. Trustworthy Official-Source Feed | 0/TBD | Not started | - |
 | 3. Full Source Coverage & Transparency | 0/TBD | Not started | - |
 | 4. Design System & Reading Experience | 0/TBD | Not started | - |
