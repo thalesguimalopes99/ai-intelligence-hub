@@ -86,6 +86,31 @@ export function classifyFetchError(err: unknown): ClassifiedError {
   return { errorKind: "network", httpStatus: null, message: sanitizeMessage(message) };
 }
 
+/**
+ * Stream the body as UTF-8 (like Response.text()) while counting bytes, and
+ * cancel as soon as it exceeds `maxBytes` (WR-05): a chunked response with no
+ * content-length can no longer be buffered whole before the size check.
+ */
+export async function readBodyCapped(res: Response, maxBytes: number = MAX_FEED_BYTES): Promise<string> {
+  if (!res.body) return "";
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  const parts: string[] = [];
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new FetchError("invalid", res.status, `body too large: over ${maxBytes} bytes`);
+    }
+    parts.push(decoder.decode(value, { stream: true }));
+  }
+  parts.push(decoder.decode());
+  return parts.join("");
+}
+
 /** GET a text body, rejecting anything larger than MAX_FEED_BYTES. */
 export async function fetchText(url: string): Promise<{ status: number; text: string }> {
   const res = await http.get(url);
@@ -94,10 +119,7 @@ export async function fetchText(url: string): Promise<{ status: number; text: st
     await res.body?.cancel();
     throw new FetchError("invalid", res.status, `body too large: ${declared} bytes`);
   }
-  const text = await res.text();
-  if (text.length > MAX_FEED_BYTES) {
-    throw new FetchError("invalid", res.status, `body too large: ${text.length} chars`);
-  }
+  const text = await readBodyCapped(res);
   // A 200 challenge page is a block, not a feed.
   const head = text.slice(0, 2000);
   if (isChallenge(head) && !/<rss|<feed|<rdf/i.test(head)) {
