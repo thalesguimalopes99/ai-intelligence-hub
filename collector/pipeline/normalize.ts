@@ -133,6 +133,30 @@ function originalUrl(raw: string): string | null {
   }
 }
 
+const ABSOLUTE_HTTP = /^https?:\/\//i;
+// Root-relative ('/news/x'), protocol-relative ('//host/x'), dot-relative or query-only.
+const RELATIVE_REF = /^(?:\/|\.\.?\/|\?)/;
+
+/**
+ * The entry's absolute http(s) link (WR-04): a relative <link> is resolved
+ * against the source URL, and an entry with no <link> falls back to an
+ * http(s) permalink guid. Anything else (javascript:, data:, bare words) → null.
+ */
+export function resolveEntryLink(entry: RawEntry, baseUrl: string): string | null {
+  const link = entry.link.trim();
+  const guid = entry.guid.trim();
+  const candidate = link !== "" ? link : ABSOLUTE_HTTP.test(guid) ? guid : "";
+  if (candidate === "") return null;
+  if (ABSOLUTE_HTTP.test(candidate)) return candidate;
+  if (!RELATIVE_REF.test(candidate)) return null;
+  try {
+    const resolved = new URL(candidate, baseUrl);
+    return resolved.protocol === "https:" || resolved.protocol === "http:" ? resolved.href : null;
+  } catch {
+    return null;
+  }
+}
+
 export type NormalizeResult = { ok: true; item: Item } | { ok: false; reason: string };
 
 /**
@@ -148,9 +172,11 @@ export function normalizeEntryResult(
   // The canonical form only derives the id (dedupe); the reader gets the
   // original link, because canonicalization (www/https/hash/ref) can point to
   // a different or non-existent page (CR-02).
-  const canonical = canonicalUrl(entry.link);
+  const link = resolveEntryLink(entry, source.url);
+  if (link === null) return { ok: false, reason: "no usable http(s) link" };
+  const canonical = canonicalUrl(link);
   if (canonical === null) return { ok: false, reason: "link is not an absolute http(s) URL" };
-  const url = originalUrl(entry.link);
+  const url = originalUrl(link);
   if (url === null) return { ok: false, reason: "link is not an absolute http(s) URL" };
   const title = truncateGraphemes(collapse(entry.title), TITLE_MAX);
   if (title === "") return { ok: false, reason: "empty title" };

@@ -257,6 +257,42 @@ describe("normalizeEntry", () => {
     expect(soon.publishedAt).toBe("2026-10-06T20:00:00.000Z");
   });
 
+  it("resolves relative links and falls back to a permalink guid (WR-04)", () => {
+    const raw = (link: string, guid = "") => ({ title: "t", link, description: "", pubDate: "", guid });
+    // source.url = https://openai.com/news/rss.xml
+    expect(normalizeEntry(raw("/index/rel"), source, NOW)!.url).toBe("https://openai.com/index/rel");
+    expect(normalizeEntry(raw("./x"), source, NOW)!.url).toBe("https://openai.com/news/x");
+    expect(normalizeEntry(raw("", "https://openai.com/index/g"), source, NOW)!.url).toBe(
+      "https://openai.com/index/g",
+    );
+    // Non-URL guid, bare words, javascript: and an empty link stay unusable.
+    expect(normalizeEntry(raw("", "tag:openai.com,2026:1"), source, NOW)).toBeNull();
+    expect(normalizeEntry(raw("not a url"), source, NOW)).toBeNull();
+    expect(normalizeEntry(raw("javascript:alert(1)", "https://openai.com/x"), source, NOW)).toBeNull();
+    expect(normalizeEntry(raw(""), source, NOW)).toBeNull();
+  });
+
+  it("parseRss: only permalink guids are kept; Atom text constructs and relative links work (WR-04)", () => {
+    const rss = `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title><link>https://openai.com</link><description>d</description>
+      <item><title>A</title><guid isPermaLink="false">https://openai.com/index/not-permalink</guid></item>
+      <item><title>B</title><guid>https://openai.com/index/permalink</guid></item></channel></rss>`;
+    const [a, b] = parseRss(rss);
+    expect(a.guid).toBe("");
+    expect(b.guid).toBe("https://openai.com/index/permalink");
+    expect(normalizeEntry(b, source, NOW)!.url).toBe("https://openai.com/index/permalink");
+
+    const atom = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>t</title><id>x</id><updated>2026-10-05T00:00:00Z</updated>
+      <entry><title>Atom entry</title><id>tag:a</id><link href="/news/rel"/><summary>&lt;p&gt;Hi&lt;/p&gt;</summary><updated>2026-10-05T10:00:00Z</updated></entry></feed>`;
+    const [e] = parseRss(atom);
+    const item = normalizeEntry(e, source, NOW)!;
+    expect(item).toMatchObject({
+      title: "Atom entry",
+      url: "https://openai.com/news/rel",
+      excerpt: "Hi",
+      publishedAt: "2026-10-05T10:00:00.000Z",
+    });
+  });
+
   it("turns an HTML description into a plain-text excerpt (WR-03)", () => {
     const html =
       '<p>Hello&nbsp;<a href="https://x.y">world</a> &amp; friends &#8212; caf&#xE9;</p>' +
