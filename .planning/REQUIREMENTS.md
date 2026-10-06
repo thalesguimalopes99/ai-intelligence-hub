@@ -126,12 +126,76 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (filled by roadmap) | | |
+| PIPE-01 | Phase 1 | Pending |
+| PIPE-02 | Phase 1 | Pending |
+| PIPE-03 | Phase 1 | Pending |
+| PIPE-04 | Phase 1 | Pending |
+| PIPE-05 | Phase 1 | Pending |
+| PIPE-06 | Phase 1 | Pending |
+| COLL-01 | Phase 2 | Pending |
+| COLL-02 | Phase 3 | Pending |
+| COLL-03 | Phase 3 | Pending |
+| COLL-04 | Phase 3 | Pending |
+| COLL-05 | Phase 3 | Pending |
+| COLL-06 | Phase 3 | Pending |
+| COLL-07 | Phase 3 | Pending |
+| COLL-08 | Phase 3 | Pending |
+| COLL-09 | Phase 2 | Pending |
+| COLL-10 | Phase 2 | Pending |
+| COLL-11 | Phase 2 | Pending |
+| COLL-12 | Phase 3 | Pending |
+| DATA-01 | Phase 1 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| DATA-04 | Phase 2 | Pending |
+| DATA-05 | Phase 2 | Pending |
+| DATA-06 | Phase 2 | Pending |
+| DATA-07 | Phase 1 | Pending |
+| DATA-08 | Phase 1 | Pending |
+| INTL-01 | Phase 2 | Pending |
+| INTL-02 | Phase 6 | Pending |
+| INTL-03 | Phase 5 | Pending |
+| INTL-04 | Phase 5 | Pending |
+| INTL-05 | Phase 7 | Pending |
+| INTL-06 | Phase 7 | Pending |
+| INTL-07 | Phase 7 | Pending |
+| FEED-01 | Phase 2 | Pending |
+| FEED-02 | Phase 7 | Pending |
+| FEED-03 | Phase 5 | Pending |
+| FEED-04 | Phase 5 | Pending |
+| FEED-05 | Phase 7 | Pending |
+| FEED-06 | Phase 1 | Pending |
+| FEED-07 | Phase 4 | Pending |
+| FEED-08 | Phase 4 | Pending |
+| FEED-09 | Phase 7 | Pending |
+| FEED-10 | Phase 4 | Pending |
+| FEED-11 | Phase 4 | Pending |
+| DISC-01 | Phase 6 | Pending |
+| DISC-02 | Phase 7 | Pending |
+| DISC-03 | Phase 8 | Pending |
+| DISC-04 | Phase 3 | Pending |
+| DISC-05 | Phase 8 | Pending |
+| DISC-06 | Phase 8 | Pending |
+| DISC-07 | Phase 8 | Pending |
+| UI-01 | Phase 4 | Pending |
+| UI-02 | Phase 4 | Pending |
+| UI-03 | Phase 4 | Pending |
+| UI-04 | Phase 9 | Pending |
+| SEO-01 | Phase 9 | Pending |
+| SEO-02 | Phase 9 | Pending |
+| SEO-03 | Phase 9 | Pending |
+| SEO-04 | Phase 9 | Pending |
+| OPS-01 | Phase 3 | Pending |
+| OPS-02 | Phase 10 | Pending |
+| OPS-03 | Phase 10 | Pending |
+| OPS-04 | Phase 10 | Pending |
+| OPS-05 | Phase 10 | Pending |
 
 **Coverage:**
 - v1 requirements: 64 total
-- Mapped to phases: 0 (pending roadmap)
+- Mapped to phases: 64
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-10-06*
-*Last updated: 2026-10-06 after initial definition*
+*Last updated: 2026-10-06 after roadmap creation*
