@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
-  "lastRunAt": "2026-11-01T15:11:26.906Z",
-  "lastSuccessAt": "2026-11-01T15:11:26.906Z",
+  "lastRunAt": "2026-11-01T19:42:14.523Z",
+  "lastSuccessAt": "2026-11-01T19:42:14.523Z",
   "lastRunStatus": "ok",
   "run": {
-    "startedAt": "2026-11-01T15:11:26.620Z",
-    "finishedAt": "2026-11-01T15:11:26.906Z",
-    "durationMs": 286,
+    "startedAt": "2026-11-01T19:42:14.205Z",
+    "finishedAt": "2026-11-01T19:42:14.523Z",
+    "durationMs": 318,
     "trigger": "schedule",
     "sourcesOk": 1,
     "sourcesFailed": 0,
-    "itemsTotal": 71,
+    "itemsTotal": 70,
     "itemsNew": 0
   },
   "sources": [
@@ -20,8 +20,8 @@
       "url": "https://openai.com/news/rss.xml",
       "status": "ok",
       "optional": false,
-      "lastAttemptAt": "2026-11-01T15:11:26.906Z",
-      "lastSuccessAt": "2026-11-01T15:11:26.906Z",
+      "lastAttemptAt": "2026-11-01T19:42:14.523Z",
+      "lastSuccessAt": "2026-11-01T19:42:14.523Z",
       "consecutiveFailures": 0,
       "errorKind": null,
       "httpStatus": null,
